@@ -3,6 +3,7 @@ import { hasCriticalOpenEventsToday } from "@/lib/events";
 import { ArrowRightCircle, Plus, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { EventsBoard } from "@/components/events-board";
+import { CalendarBoard } from "@/components/calendar-board";
 
 export const dynamic = "force-dynamic";
 
@@ -154,11 +155,16 @@ export default async function Home() {
           </p>
         </section>
 
-        {firstModule && (
-          <section className="mb-4 flex-1">
-            <EventsBoard moduleId={firstModule.id} />
-          </section>
-        )}
+        <section className="grid gap-4 md:grid-cols-[minmax(0,1.2fr),minmax(0,1.1fr)] mb-4 flex-1">
+          {firstModule && (
+            <div>
+              <EventsBoard moduleId={firstModule.id} />
+            </div>
+          )}
+          <div className="min-h-[260px]">
+            <CalendarBoard />
+          </div>
+        </section>
       </main>
     </div>
   );
