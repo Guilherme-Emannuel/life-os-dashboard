@@ -1,0 +1,89 @@
+// Prisma schema for Life OS (Dashboard de Gestão Pessoal)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum EventType {
+  EVENT
+  REMINDER
+  TASK
+}
+
+enum EventStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  order     Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events    Event[]
+}
+
+model Event {
+  id          String       @id @default(cuid())
+  title       String
+  type        EventType
+  status      EventStatus  @default(PENDING)
+
+  startDate   DateTime
+  dueDate     DateTime
+
+  priority    Priority     @default(MEDIUM)
+
+  brief       String?      // descrição inicial / briefing
+  outcome     String?      // descrição final / anotações / por que concluiu ou adiou
+
+  module      Module       @relation(fields: [moduleId], references: [id])
+  moduleId    String
+
+  attachments Attachment[]
+  reminders   Reminder[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  url       String
+  name      String?
+  mimeType  String?
+
+  event     Event    @relation(fields: [eventId], references: [id])
+  eventId   String
+
+  createdAt DateTime @default(now())
+}
+
+model Reminder {
+  id        String   @id @default(cuid())
+  remindAt  DateTime
+
+  event     Event    @relation(fields: [eventId], references: [id])
+  eventId   String
+
+  createdAt DateTime @default(now())
+}
