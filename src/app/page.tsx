@@ -1,6 +1,8 @@
 import { getActiveModules } from "@/lib/modules";
+import { hasCriticalOpenEventsToday } from "@/lib/events";
 import { ArrowRightCircle, Plus, Settings2 } from "lucide-react";
 import Link from "next/link";
+import { EventsBoard } from "@/components/events-board";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +19,19 @@ async function getDayProgress() {
 }
 
 export default async function Home() {
-  const [modules, dayProgress] = await Promise.all([
+  const [modules, dayProgress, hasCritical] = await Promise.all([
     getActiveModules(),
     getDayProgress(),
+    hasCriticalOpenEventsToday(),
   ]);
+
+  const firstModule = modules[0];
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-zinc-950 via-zinc-950 to-black text-zinc-50">
       <header className="border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-sm font-semibold text-zinc-100">
               OS
             </span>
@@ -79,7 +84,7 @@ export default async function Home() {
                   className={`h-full rounded-full bg-gradient-to-r from-emerald-400 via-amber-300 to-red-500 transition-all`}
                   style={{ width: `${dayProgress}%` }}
                 />
-                {dayProgress > 75 && (
+                {dayProgress > 75 && hasCritical && (
                   <div className="pointer-events-none absolute inset-0 animate-pulse bg-red-500/20" />
                 )}
               </div>
@@ -149,11 +154,11 @@ export default async function Home() {
           </p>
         </section>
 
-        {/* A área principal de conteúdo (tarefas, calendário etc.) será construída nos próximos passos */}
-        <section className="mb-4 flex-1 rounded-2xl border border-dashed border-zinc-800/80 bg-zinc-950/60 px-4 py-8 text-center text-xs text-zinc-500">
-          Em breve: visão de Hoje com tarefas críticas, calendário interativo,
-          filtros por tipo/prioridade/status e lista estilo Notion.
-        </section>
+        {firstModule && (
+          <section className="mb-4 flex-1">
+            <EventsBoard moduleId={firstModule.id} />
+          </section>
+        )}
       </main>
     </div>
   );
