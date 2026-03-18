@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { createEvent, listEvents, EVENT_TYPES, EVENT_STATUS, PRIORITY, EventFilters } from "@/lib/events";
 import { fromNaiveISOString, debugTimezone } from "@/lib/naive-date";
 
@@ -83,6 +85,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session) {
+    return NextResponse.json(
+      { error: 'Unauthorized - Authentication required' },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await req.json();
 

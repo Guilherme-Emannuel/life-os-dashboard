@@ -1,5 +1,7 @@
 import { getModules } from "@/lib/module-actions";
 import { hasCriticalOpenEventsToday } from "@/lib/events";
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import HomeClient from "./home-client";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +19,13 @@ async function getDayProgress() {
 }
 
 export default async function Home() {
+  const session = await getServerSession(authOptions);
+
+  if (!session) {
+    // O middleware vai redirecionar para o login
+    return null;
+  }
+
   const modules = await getModules();
   const [dayProgress, hasCritical] = await Promise.all([
     getDayProgress(),
