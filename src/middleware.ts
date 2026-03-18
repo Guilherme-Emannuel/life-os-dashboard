@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-// Rotas públicas que não requerem autenticação
-const publicRoutes = ['/auth/signin', '/api/auth/signin', '/api/auth/session'];
+// Rotas que não requerem autenticação
+const publicRoutes = ['/auth/signin'];
 // Rotas de API que requerem autenticação
 const protectedApiRoutes = ['/api/events', '/api/modules', '/api/reminders'];
 // Rotas de página que requerem autenticação
@@ -12,14 +12,24 @@ const protectedRoutes = ['/', '/admin'];
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   
+  // Ignorar completamente arquivos estáticos e rotas do NextAuth
+  if (
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/api/auth/') ||
+    pathname.startsWith('/public/') ||
+    pathname.includes('favicon.ico') ||
+    pathname.includes('manifest.json') ||
+    pathname.includes('.svg') ||
+    pathname.includes('.png') ||
+    pathname.includes('.jpg') ||
+    pathname.includes('.js') ||
+    pathname.includes('.css')
+  ) {
+    return NextResponse.next();
+  }
+  
   // Verificar se é uma rota pública
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-  
-  // Verificar se é uma rota de API protegida
-  const isProtectedApi = protectedApiRoutes.some(route => pathname.startsWith(route));
-  
-  // Verificar se é uma rota de página protegida
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
   
   // Se for rota pública, permitir acesso
   if (isPublicRoute) {
@@ -32,9 +42,10 @@ export async function middleware(req: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET 
   });
   
-  // Se não houver token e for rota protegida, redirecionar para login
-  if (!token && (isProtectedRoute || isProtectedApi)) {
+  // Se não houver token, redirecionar para login
+  if (!token) {
     // Para rotas de API, retornar 401
+    const isProtectedApi = protectedApiRoutes.some(route => pathname.startsWith(route));
     if (isProtectedApi) {
       return NextResponse.json(
         { error: 'Unauthorized - Authentication required' },
@@ -55,13 +66,7 @@ export async function middleware(req: NextRequest) {
 // Configurar quais rotas o middleware deve interceptar
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    // Ignorar arquivos estáticos e rotas do NextAuth
+    '/((?!api/auth|_next|favicon\\.ico|manifest\\.json).*)',
   ],
 };

@@ -7,6 +7,7 @@ import { NotificationBanner } from "@/components/notification-banner";
 import { ToastProvider } from "@/components/toast-provider";
 import { EventNotifier } from "@/components/event-notifier";
 import { RealtimeMonitorProvider } from "@/components/realtime-monitor-provider";
+import { AuthProvider } from "@/components/auth-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,15 +58,17 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-full bg-slate-50 text-slate-900`}
       >
-        <QueryProvider>
-          <RealtimeMonitorProvider>
-            {children}
-            <QuickCaptureFloating />
-            <NotificationBanner />
-            <ToastProvider />
-            <EventNotifier />
-          </RealtimeMonitorProvider>
-        </QueryProvider>
+        <AuthProvider>
+          <QueryProvider>
+            <RealtimeMonitorProvider>
+              {children}
+              <QuickCaptureFloating />
+              <NotificationBanner />
+              <ToastProvider />
+              <EventNotifier />
+            </RealtimeMonitorProvider>
+          </QueryProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -7,7 +7,8 @@
     "build": "set TZ=America/Campo_Grande && next build",
     "start": "set TZ=America/Campo_Grande && next start -p 3000",
     "lint": "eslint",
-    "backup": "node scripts/backup.cjs"
+    "backup": "node scripts/backup.cjs",
+    "db:seed": "set TZ=America/Campo_Grande && npx prisma db seed"
   },
   "dependencies": {
     "@fullcalendar/daygrid": "^6.1.20",
@@ -31,6 +32,9 @@
     "react-dom": "19.2.3",
     "sonner": "^2.0.7"
   },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^6.0.0",
@@ -41,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

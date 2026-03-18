@@ -35,7 +35,10 @@ export const authOptions = {
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
+        console.log('🔍 Tentativa de login:', credentials?.email);
+        
         if (!credentials?.email || !credentials?.password) {
+          console.error('❌ Email ou senha não fornecidos');
           throw new Error('Email e senha são obrigatórios');
         }
 
@@ -45,8 +48,11 @@ export const authOptions = {
         });
 
         if (!user) {
+          console.error('❌ Usuário não encontrado:', credentials.email);
           throw new Error('Usuário não encontrado');
         }
+
+        console.log('✅ Usuário encontrado, verificando senha...');
 
         // Verificar senha
         const isPasswordValid = await bcrypt.compare(
@@ -55,8 +61,11 @@ export const authOptions = {
         );
 
         if (!isPasswordValid) {
+          console.error('❌ Senha incorreta para:', credentials.email);
           throw new Error('Senha incorreta');
         }
+
+        console.log('✅ Login bem-sucedido para:', credentials.email);
 
         return {
           id: user.id,
@@ -87,7 +96,8 @@ export const authOptions = {
   pages: {
     signIn: '/auth/signin',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development',
+  debug: process.env.NODE_ENV === 'development',
   // Configuração de cookies seguros para produção
   cookies: {
     sessionToken: {

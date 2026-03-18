@@ -1,15 +1,35 @@
 "use client";
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { status } = useSession();
+  
+  const error = searchParams.get('error');
+
+  useEffect(() => {
+    if (error === 'CredentialsSignin') {
+      toast.error('Credenciais inválidas. Verifique email e senha.');
+    } else if (error) {
+      toast.error('Erro ao fazer login. Tente novamente.');
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.push('/');
+      router.refresh();
+    }
+  }, [status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,20 +42,30 @@ export default function SignInPage() {
     setIsLoading(true);
 
     try {
+      console.log('🔍 Tentando login com:', email);
+      
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
 
+      console.log('📊 Resultado do login:', result);
+
       if (result?.error) {
+        console.error('❌ Erro no login:', result.error);
         toast.error('Credenciais inválidas');
-      } else {
+      } else if (result?.ok) {
+        console.log('✅ Login bem-sucedido!');
         toast.success('Login realizado com sucesso!');
         router.push('/');
         router.refresh();
+      } else {
+        console.error('❌ Resultado inesperado:', result);
+        toast.error('Erro inesperado ao fazer login');
       }
     } catch (error) {
+      console.error('❌ Erro no handleSubmit:', error);
       toast.error('Erro ao fazer login');
     } finally {
       setIsLoading(false);
