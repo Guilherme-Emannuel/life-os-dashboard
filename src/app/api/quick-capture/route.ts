@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { EventStatus, EventType, Priority } from "@prisma/client";
 import { ensureDefaultModules } from "@/lib/modules";
+
+// Constants para tipos (substituindo enums)
+const EVENT_TYPES = {
+  EVENT: "EVENT",
+  REMINDER: "REMINDER", 
+  TASK: "TASK"
+} as const;
+
+const EVENT_STATUS = {
+  PENDING: "PENDING",
+  IN_PROGRESS: "IN_PROGRESS",
+  COMPLETED: "COMPLETED",
+  OVERDUE: "OVERDUE"
+} as const;
+
+const PRIORITY = {
+  LOW: "LOW",
+  MEDIUM: "MEDIUM",
+  HIGH: "HIGH",
+  CRITICAL: "CRITICAL"
+} as const;
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -33,11 +53,11 @@ export async function POST(req: NextRequest) {
   await prisma.event.create({
     data: {
       title: text.length > 120 ? text.slice(0, 117) + "..." : text,
-      type: EventType.TASK,
-      status: EventStatus.PENDING,
+      type: EVENT_TYPES.TASK,
+      status: EVENT_STATUS.PENDING,
       startDate: now,
       dueDate: now,
-      priority: Priority.MEDIUM,
+      priority: PRIORITY.MEDIUM,
       brief: text,
       moduleId: firstModule.id,
     },

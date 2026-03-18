@@ -1,147 +1,171 @@
-"use server";
+"use client";
 
-import { prisma } from "@/lib/prisma";
-import { ensureDefaultModules } from "@/lib/modules";
-import { revalidatePath } from "next/cache";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+import { updateModule, createModule, deleteModule, getAllModules } from "./actions";
 
-async function getAllModules() {
-  await ensureDefaultModules();
-  return prisma.module.findMany({
-    orderBy: { order: "asc" },
-  });
-}
+export default function ModulesAdminPage() {
+  const [modules, setModules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-async function updateModule(formData: FormData) {
-  "use server";
-  const id = formData.get("id") as string;
-  const name = (formData.get("name") as string) ?? "";
-  const isActive = formData.get("isActive") === "on";
+  // Carregar módulos
+  useEffect(() => {
+    const loadModules = async () => {
+      try {
+        const data = await getAllModules();
+        setModules(data);
+      } catch (error) {
+        console.error("Erro ao carregar módulos:", error);
+      }
+    };
+    
+    loadModules();
+  }, []);
 
-  await prisma.module.update({
-    where: { id },
-    data: { name, isActive },
-  });
+  // Handlers manuais
+  const handleUpdate = async (formData: FormData) => {
+    setLoading(true);
+    try {
+      await updateModule(formData);
+      // Recarregar lista
+      const data = await getAllModules();
+      setModules(data);
+    } catch (error) {
+      console.error("Erro ao atualizar módulo:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  revalidatePath("/");
-  revalidatePath("/admin/modules");
-}
+  const handleCreate = async (formData: FormData) => {
+    setLoading(true);
+    try {
+      await createModule(formData);
+      // Recarregar lista
+      const data = await getAllModules();
+      setModules(data);
+    } catch (error) {
+      console.error("Erro ao criar módulo:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-async function createModule(formData: FormData) {
-  "use server";
-  const name = (formData.get("name") as string) ?? "";
-  const slug = name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
-
-  const maxOrder = await prisma.module.aggregate({
-    _max: { order: true },
-  });
-
-  await prisma.module.create({
-    data: {
-      name,
-      slug,
-      isActive: true,
-      order: (maxOrder._max.order ?? 0) + 1,
-    },
-  });
-
-  revalidatePath("/");
-  revalidatePath("/admin/modules");
-}
-
-async function deleteModule(formData: FormData) {
-  "use server";
-  const id = formData.get("id") as string;
-
-  await prisma.module.delete({
-    where: { id },
-  });
-
-  revalidatePath("/");
-  revalidatePath("/admin/modules");
-}
-
-export default async function ModulesAdminPage() {
-  const modules = await getAllModules();
+  const handleDelete = async (formData: FormData) => {
+    if (!confirm("Tem certeza que deseja excluir este módulo?")) return;
+    
+    setLoading(true);
+    try {
+      await deleteModule(formData);
+      // Recarregar lista
+      const data = await getAllModules();
+      setModules(data);
+    } catch (error) {
+      console.error("Erro ao excluir módulo:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 bg-zinc-950 px-4 py-8 text-zinc-100">
-      <header className="flex items-center justify-between gap-4 border-b border-zinc-800 pb-4">
-        <div>
-          <h1 className="text-base font-semibold tracking-tight">
-            Gerenciar módulos
-          </h1>
-          <p className="text-xs text-zinc-500">
-            Renomeie, oculte, exclua ou crie novas abas para o seu Life OS.
-          </p>
+    <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 bg-gradient-to-b from-slate-50 via-white to-blue-50 px-4 py-8 text-slate-900">
+      <header className="flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Voltar
+          </Link>
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight text-slate-900">
+              Gerenciar módulos
+            </h1>
+            <p className="text-sm text-slate-600">
+              Renomeie, oculte, exclua ou crie novas abas para o seu Life OS.
+            </p>
+          </div>
         </div>
       </header>
 
-      <section className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-lg shadow-slate-200/50">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
           Módulos existentes
         </h2>
-        <div className="space-y-2 text-xs">
-          {modules.map((module) => (
+        <div className="space-y-3">
+          {modules.map((module: any) => (
             <form
               key={module.id}
-              action={updateModule}
-              className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                handleUpdate(formData);
+              }}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
             >
               <input type="hidden" name="id" value={module.id} />
               <input
                 name="name"
                 defaultValue={module.name}
-                className="h-7 flex-1 rounded-md border border-zinc-700/70 bg-zinc-950 px-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
+                className="h-8 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
               />
-              <label className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
                 <input
                   type="checkbox"
                   name="isActive"
                   defaultChecked={module.isActive}
-                  className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 text-emerald-500"
+                  className="h-4 w-4 rounded border-slate-300 bg-white text-blue-500 focus:ring-2 focus:ring-blue-500"
                 />
-                visível
+                Visível
               </label>
               <button
-                formAction={deleteModule}
-                className="rounded-md bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-400 hover:bg-red-500/20"
+                type="button"
+                onClick={() => {
+                  const formData = new FormData();
+                  formData.set("id", module.id);
+                  handleDelete(formData);
+                }}
+                className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
               >
                 Excluir
               </button>
               <button
                 type="submit"
-                className="rounded-md bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-emerald-950 hover:bg-emerald-400"
+                disabled={loading}
+                className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
               >
-                Salvar
+                {loading ? "Salvando..." : "Salvar"}
               </button>
             </form>
           ))}
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-lg shadow-slate-200/50">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
           Novo módulo
         </h2>
         <form
-          action={createModule}
-          className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-xs"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            handleCreate(formData);
+          }}
+          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
         >
           <input
             name="name"
             placeholder="Ex.: Saúde, Projetos, Família..."
-            className="h-7 flex-1 rounded-md border border-zinc-700/70 bg-zinc-950 px-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
+            className="h-8 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
           />
           <button
             type="submit"
-            className="rounded-md bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-emerald-950 hover:bg-emerald-400"
+            disabled={loading}
+            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
           >
-            Adicionar
+            {loading ? "Adicionando..." : "Adicionar"}
           </button>
         </form>
       </section>

@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteEvent, getEvent, updateEvent } from "@/lib/events";
-import { EventStatus, EventType, Priority } from "@prisma/client";
+import { toLocalISOString } from "@/lib/timezone";
+
+// Constants para tipos (substituindo enums)
+const EVENT_TYPES = {
+  EVENT: "EVENT",
+  REMINDER: "REMINDER", 
+  TASK: "TASK"
+} as const;
+
+const EVENT_STATUS = {
+  PENDING: "PENDING",
+  IN_PROGRESS: "IN_PROGRESS",
+  COMPLETED: "COMPLETED",
+  OVERDUE: "OVERDUE"
+} as const;
+
+const PRIORITY = {
+  LOW: "LOW",
+  MEDIUM: "MEDIUM",
+  HIGH: "HIGH",
+  CRITICAL: "CRITICAL"
+} as const;
 
 type RouteParams = {
   params: {
@@ -8,30 +29,41 @@ type RouteParams = {
   };
 };
 
-export async function GET(_req: NextRequest, { params }: RouteParams) {
-  const event = await getEvent(params.id);
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const event = await getEvent(id);
   if (!event) {
     return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
   }
   return NextResponse.json(event);
 }
 
-export async function PATCH(req: NextRequest, { params }: RouteParams) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const body = await req.json();
 
-    const event = await updateEvent(params.id, {
-      title: body.title,
-      type: body.type as EventType | undefined,
-      status: body.status as EventStatus | undefined,
-      startDate: body.startDate ? new Date(body.startDate) : undefined,
-      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
-      priority: body.priority as Priority | undefined,
-      brief: body.brief,
-      outcome: body.outcome,
-      moduleId: body.moduleId,
-      attachmentUrls: body.attachmentUrls as string[] | undefined,
-    });
+    // Se só está atualizando status, não precisa converter datas
+    const updateData: any = {};
+    
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.type !== undefined) updateData.type = body.type as keyof typeof EVENT_TYPES;
+    if (body.status !== undefined) updateData.status = body.status as keyof typeof EVENT_STATUS;
+    if (body.priority !== undefined) updateData.priority = body.priority as keyof typeof PRIORITY;
+    if (body.brief !== undefined) updateData.brief = body.brief;
+    if (body.outcome !== undefined) updateData.outcome = body.outcome;
+    if (body.moduleId !== undefined) updateData.moduleId = body.moduleId;
+    if (body.attachmentUrls !== undefined) updateData.attachmentUrls = body.attachmentUrls as string[];
+    
+    // Converter datas apenas se fornecidas
+    if (body.startDate !== undefined) {
+      updateData.startDate = new Date(toLocalISOString(new Date(body.startDate)));
+    }
+    if (body.dueDate !== undefined) {
+      updateData.dueDate = new Date(toLocalISOString(new Date(body.dueDate)));
+    }
+
+    const event = await updateEvent(id, updateData);
 
     return NextResponse.json(event);
   } catch (error: any) {
@@ -42,8 +74,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
-  await deleteEvent(params.id);
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  await deleteEvent(id);
   return NextResponse.json({ ok: true });
 }
 

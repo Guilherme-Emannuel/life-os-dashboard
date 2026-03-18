@@ -19,6 +19,7 @@ export function QuickCaptureFloating() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const onSubmit = async () => {
     if (!text.trim()) return;
@@ -27,11 +28,22 @@ export function QuickCaptureFloating() {
       setError(null);
       await quickCapture(text.trim());
       setText("");
-      setOpen(false);
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        setOpen(false);
+      }, 1500);
     } catch (err: any) {
       setError(err?.message ?? "Erro ao salvar captura rápida.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      onSubmit();
     }
   };
 
@@ -40,32 +52,43 @@ export function QuickCaptureFloating() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-zinc-950 shadow-xl shadow-emerald-500/40 transition hover:bg-emerald-400"
+        className="fixed bottom-5 right-5 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl shadow-blue-500/40 transition-all hover:bg-blue-600 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-7 w-7" />
       </button>
       {open && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 px-4 pb-16 sm:items-center sm:pb-0">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl shadow-black/60">
-            <p className="mb-2 text-xs font-medium text-zinc-200">
-              Captura rápida
-            </p>
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 px-4 pb-16 sm:items-center sm:pb-0">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-900/20">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Captura rápida
+              </h3>
+              <p className="text-sm text-slate-600">
+                Pense pouco, capture tudo.
+              </p>
+            </div>
             <textarea
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Digite em 2 segundos o que acabou de lembrar. O sistema organiza depois."
               rows={3}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 resize-none"
             />
             {error && (
-              <p className="mt-1 text-[11px] text-red-400">{error}</p>
+              <p className="mt-2 text-sm text-red-600">{error}</p>
             )}
-            <div className="mt-3 flex justify-end gap-2 text-[11px]">
+            {success && (
+              <p className="mt-2 text-sm text-green-600">
+                ✅ Salvo com sucesso!
+              </p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1 text-zinc-200 hover:bg-zinc-800"
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 Cancelar
               </button>
@@ -73,7 +96,7 @@ export function QuickCaptureFloating() {
                 type="button"
                 disabled={loading || !text.trim()}
                 onClick={onSubmit}
-                className="rounded-md bg-emerald-500 px-3 py-1 font-semibold text-emerald-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-emerald-500/40"
+                className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
               >
                 {loading ? "Salvando..." : "Salvar"}
               </button>

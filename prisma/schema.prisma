@@ -1,32 +1,12 @@
 // Prisma schema for Life OS (Dashboard de Gestão Pessoal)
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
-}
-
-enum EventType {
-  EVENT
-  REMINDER
-  TASK
-}
-
-enum EventStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  OVERDUE
-}
-
-enum Priority {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
+  url      = env("DATABASE_URL")
 }
 
 model Module {
@@ -43,27 +23,27 @@ model Module {
 }
 
 model Event {
-  id          String       @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
-  type        EventType
-  status      EventStatus  @default(PENDING)
+  type        String   // EVENT, REMINDER, TASK
+  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, OVERDUE
 
   startDate   DateTime
   dueDate     DateTime
 
-  priority    Priority     @default(MEDIUM)
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
 
-  brief       String?      // descrição inicial / briefing
-  outcome     String?      // descrição final / anotações / por que concluiu ou adiou
+  brief       String?  // descrição inicial / briefing
+  outcome     String?  // descrição final / anotações / por que concluiu ou adiou
 
-  module      Module       @relation(fields: [moduleId], references: [id])
+  module      Module   @relation(fields: [moduleId], references: [id])
   moduleId    String
 
   attachments Attachment[]
   reminders   Reminder[]
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Attachment {

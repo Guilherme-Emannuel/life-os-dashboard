@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "set TZ=America/Campo_Grande && next dev -p 3001 -H localhost",
+    "build": "set TZ=America/Campo_Grande && next build",
+    "start": "set TZ=America/Campo_Grande && next start",
     "lint": "eslint",
     "backup": "node scripts/backup.cjs"
   },
@@ -14,14 +14,19 @@
     "@fullcalendar/interaction": "^6.1.20",
     "@fullcalendar/react": "^6.1.20",
     "@fullcalendar/timegrid": "^6.1.20",
-    "@prisma/client": "^7.5.0",
+    "@prisma/client": "^5.22.0",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-query-devtools": "^5.91.3",
+    "chrono-node": "^2.9.0",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
-    "prisma": "^7.5.0",
+    "next-pwa": "^5.6.0",
+    "prisma": "^5.22.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

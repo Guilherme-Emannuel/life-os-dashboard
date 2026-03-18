@@ -1,0 +1,8 @@
+# Arquivo de som para notificações
+# Este é um placeholder - você pode substituir por um arquivo MP3 real
+# Para criar um som de notificação, você pode:
+# 1. Baixar um som gratuito de sites como freesound.org
+# 2. Usar um gerador online de sons de notificação
+# 3. Gravar seu próprio som de alarme
+
+# O sistema tem fallback para Web Audio API se este arquivo não existir

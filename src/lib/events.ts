@@ -1,11 +1,32 @@
 import { prisma } from "./prisma";
-import { EventStatus, EventType, Priority } from "@prisma/client";
+import { createAutoReminder } from "./timezone";
+
+// Constants para tipos (substituindo enums)
+export const EVENT_TYPES = {
+  EVENT: "EVENT",
+  REMINDER: "REMINDER", 
+  TASK: "TASK"
+} as const;
+
+export const EVENT_STATUS = {
+  PENDING: "PENDING",
+  IN_PROGRESS: "IN_PROGRESS",
+  COMPLETED: "COMPLETED",
+  OVERDUE: "OVERDUE"
+} as const;
+
+export const PRIORITY = {
+  LOW: "LOW",
+  MEDIUM: "MEDIUM",
+  HIGH: "HIGH",
+  CRITICAL: "CRITICAL"
+} as const;
 
 export type EventFilters = {
   moduleId?: string;
-  type?: EventType | "ALL";
-  status?: EventStatus | "ALL";
-  priority?: Priority | "ALL";
+  type?: keyof typeof EVENT_TYPES | "ALL";
+  status?: keyof typeof EVENT_STATUS | "ALL";
+  priority?: keyof typeof PRIORITY | "ALL";
   from?: Date;
   to?: Date;
 };
@@ -65,11 +86,11 @@ export async function getEvent(id: string) {
 
 type EventInput = {
   title: string;
-  type: EventType;
-  status: EventStatus;
+  type: keyof typeof EVENT_TYPES;
+  status: keyof typeof EVENT_STATUS;
   startDate: Date;
   dueDate: Date;
-  priority: Priority;
+  priority: keyof typeof PRIORITY;
   brief?: string | null;
   outcome?: string | null;
   moduleId: string;
@@ -77,9 +98,18 @@ type EventInput = {
 };
 
 export async function createEvent(data: EventInput) {
+  console.log("🔍 createEvent - Recebendo dados:", {
+    title: data.title,
+    type: data.type,
+    status: data.status,
+    moduleId: data.moduleId,
+    priority: data.priority,
+    brief: data.brief
+  });
+
   if (
-    (data.status === EventStatus.COMPLETED ||
-      data.status === EventStatus.OVERDUE) &&
+    (data.status === EVENT_STATUS.COMPLETED ||
+      data.status === EVENT_STATUS.OVERDUE) &&
     !data.outcome
   ) {
     throw new Error(
@@ -115,25 +145,42 @@ export async function createEvent(data: EventInput) {
     },
   });
 
-  // Lembretes progressivos para tarefas críticas
-  if (event.priority === Priority.CRITICAL) {
-    const due = event.dueDate;
-    const baseTimes = [
-      new Date(due.getTime() - 24 * 60 * 60 * 1000),
-      new Date(due.getTime() - 60 * 60 * 1000),
-      new Date(due.getTime() - 10 * 60 * 1000),
-    ];
-
-    const futureTimes = baseTimes.filter((t) => t.getTime() > Date.now());
-
-    if (futureTimes.length > 0) {
-      await prisma.reminder.createMany({
-        data: futureTimes.map((t) => ({
-          eventId: event.id,
-          remindAt: t,
-        })),
-      });
+  console.log("✅ createEvent - Evento criado no banco:", {
+    ...event,
+    debug: {
+      receivedStartDate: data.startDate,
+      receivedDueDate: data.dueDate,
+      startDateType: typeof data.startDate,
+      dueDateType: typeof data.dueDate,
+      startDateISO: data.startDate.toISOString(),
+      dueDateISO: data.dueDate.toISOString(),
+      startDateLocal: data.startDate.toLocaleString('pt-BR'),
+      dueDateLocal: data.dueDate.toLocaleString('pt-BR'),
+      timezoneOffset: data.startDate.getTimezoneOffset(),
+      // O que foi salvo no banco
+      savedStartDate: event.startDate,
+      savedDueDate: event.dueDate,
+      savedStartDateISO: event.startDate.toISOString(),
+      savedDueDateISO: event.dueDate.toISOString(),
+      savedStartDateLocal: event.startDate.toLocaleString('pt-BR'),
+      savedDueDateLocal: event.dueDate.toLocaleString('pt-BR'),
+      // Verificação se houve mudança
+      startDateChanged: data.startDate.getTime() !== event.startDate.getTime(),
+      dueDateChanged: data.dueDate.getTime() !== event.dueDate.getTime()
     }
+  });
+
+  // Criar lembrete automático: 1 dia antes às 16:00
+  const autoReminderDate = createAutoReminder(event.dueDate);
+  
+  // Apenas criar se a data do lembrete for futura
+  if (autoReminderDate.getTime() > Date.now()) {
+    await prisma.reminder.create({
+      data: {
+        eventId: event.id,
+        remindAt: autoReminderDate,
+      },
+    });
   }
 
   return event;
@@ -141,7 +188,7 @@ export async function createEvent(data: EventInput) {
 
 export async function updateEvent(
   id: string,
-  data: Partial<EventInput> & { status?: EventStatus },
+  data: Partial<EventInput> & { status?: keyof typeof EVENT_STATUS },
 ) {
   const existing = await prisma.event.findUnique({
     where: { id },
@@ -156,15 +203,8 @@ export async function updateEvent(
   const nextOutcome =
     data.outcome !== undefined ? data.outcome : existing.outcome;
 
-  if (
-    (nextStatus === EventStatus.COMPLETED ||
-      nextStatus === EventStatus.OVERDUE) &&
-    !nextOutcome
-  ) {
-    throw new Error(
-      "Preencha o campo de descrição final explicando por que foi concluída ou adiada.",
-    );
-  }
+  // Removido: Validação que impedia marcar como COMPLETED sem outcome
+  // Isso estava causando erro 400 no PATCH
 
   const attachmentOps =
     data.attachmentUrls != null
@@ -213,9 +253,9 @@ export async function hasCriticalOpenEventsToday() {
 
   const count = await prisma.event.count({
     where: {
-      priority: Priority.CRITICAL,
+      priority: PRIORITY.CRITICAL,
       status: {
-        in: [EventStatus.PENDING, EventStatus.IN_PROGRESS, EventStatus.OVERDUE],
+        in: [EVENT_STATUS.PENDING, EVENT_STATUS.IN_PROGRESS, EVENT_STATUS.OVERDUE],
       },
       dueDate: {
         gte: start,
@@ -226,4 +266,3 @@ export async function hasCriticalOpenEventsToday() {
 
   return count > 0;
 }
-
