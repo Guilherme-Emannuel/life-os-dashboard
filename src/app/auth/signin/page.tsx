@@ -5,8 +5,11 @@ import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
+import { Suspense } from 'react';
 
-export default function SignInPage() {
+export const dynamic = 'force-dynamic';
+
+function SignInContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -42,30 +45,22 @@ export default function SignInPage() {
     setIsLoading(true);
 
     try {
-      console.log('🔍 Tentando login com:', email);
-      
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
 
-      console.log('📊 Resultado do login:', result);
-
       if (result?.error) {
-        console.error('❌ Erro no login:', result.error);
         toast.error('Credenciais inválidas');
       } else if (result?.ok) {
-        console.log('✅ Login bem-sucedido!');
         toast.success('Login realizado com sucesso!');
         router.push('/');
         router.refresh();
       } else {
-        console.error('❌ Resultado inesperado:', result);
         toast.error('Erro inesperado ao fazer login');
       }
     } catch (error) {
-      console.error('❌ Erro no handleSubmit:', error);
       toast.error('Erro ao fazer login');
     } finally {
       setIsLoading(false);
@@ -109,7 +104,7 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="••••••••"
+                placeholder="•••••••"
                 required
               />
             </div>
@@ -131,5 +126,13 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100"><div>Carregando...</div></div>}>
+      <SignInContent />
+    </Suspense>
   );
 }
