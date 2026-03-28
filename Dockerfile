@@ -45,7 +45,6 @@ COPY --from=builder /app/prisma ./prisma
 # Copy built application
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.js ./
 COPY --from=builder /app/next.config.ts ./
 
 # Create necessary directories
