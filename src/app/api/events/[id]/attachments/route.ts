@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   
@@ -17,6 +17,7 @@ export async function POST(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     const { url, name, mimeType } = body;
 
@@ -29,7 +30,7 @@ export async function POST(
 
     // Verificar se o evento existe e pertence ao usuário
     const event = await prisma.event.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { userId: true }
     });
 
@@ -54,7 +55,7 @@ export async function POST(
         name: name || null,
         mimeType: mimeType || null,
         event: {
-          connect: { id: params.id }
+          connect: { id }
         }
       }
     });
@@ -62,7 +63,6 @@ export async function POST(
     return NextResponse.json(attachment, { status: 201 });
 
   } catch (error: any) {
-    console.error('Erro ao criar anexo:', error);
     return NextResponse.json(
       { error: error?.message || 'Erro ao criar anexo' },
       { status: 500 }
@@ -72,7 +72,7 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   
@@ -126,7 +126,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('Erro ao deletar anexo:', error);
     return NextResponse.json(
       { error: error?.message || 'Erro ao deletar anexo' },
       { status: 500 }

@@ -28,7 +28,6 @@ export async function GET(
     
     return NextResponse.json(reminder);
   } catch (error: any) {
-    console.error("❌ API GET /reminders/[id] - Erro:", error);
     return NextResponse.json(
       { error: error?.message ?? "Erro ao buscar lembrete" },
       { status: 400 },
@@ -44,8 +43,6 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
     
-    console.log("🔍 API PATCH /reminders - Atualizando lembrete:", { id, body });
-    
     const updateData: any = {};
     
     if (body.remindAt) {
@@ -60,11 +57,8 @@ export async function PATCH(
       },
     });
     
-    console.log("✅ API PATCH /reminders - Lembrete atualizado:", reminder);
-    
     return NextResponse.json(reminder);
   } catch (error: any) {
-    console.error("❌ API PATCH /reminders - Erro:", error);
     return NextResponse.json(
       { error: error?.message ?? "Erro ao atualizar lembrete" },
       { status: 400 },
@@ -83,11 +77,8 @@ export async function DELETE(
       where: { id },
     });
     
-    console.log("✅ API DELETE /reminders - Lembrete excluído:", id);
-    
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("❌ API DELETE /reminders - Erro:", error);
     return NextResponse.json(
       { error: error?.message ?? "Erro ao excluir lembrete" },
       { status: 400 },
