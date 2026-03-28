@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  life-os:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: life-os-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:./prisma/dev.db
+    env_file:
+      - .env.local
+    volumes:
+      # Persist database file
+      - ./prisma/dev.db:/app/prisma/dev.db
+      # Persist database journal for SQLite
+      - ./prisma:/app/prisma
+      # Persist uploaded files
+      - ./public/uploads:/app/public/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - life-os-network
+
+networks:
+  life-os-network:
+    driver: bridge
