@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "set TZ=America/Campo_Grande && next dev -p 3000",
+    "dev": "next dev -p 3000 -H 0.0.0.0",
     "build": "set TZ=America/Campo_Grande && next build",
     "start": "set TZ=America/Campo_Grande && next start -p 3000",
     "lint": "eslint",

@@ -17,7 +17,8 @@ export function toLocalISOString(date: Date): string {
 }
 
 /**
- * Converte string ISO para Date local (sem conversão UTC)
+ * @deprecated Use fromNaiveISOString from naive-date.ts instead
+ * Mantida apenas para compatibilidade
  */
 export function fromLocalISOString(dateString: string): Date {
   // Criar Date a partir da string ISO como se fosse local
@@ -37,21 +38,29 @@ export function fromLocalISOString(dateString: string): Date {
  * Formata data para exibição local
  */
 export function formatLocalDate(date: Date | string, formatStr: string = "dd/MM/yyyy 'às' HH:mm"): string {
-  const localDate = typeof date === 'string' ? fromLocalISOString(date) : date;
-  return format(localDate, formatStr);
+  const d = typeof date === 'string' ? new Date(date) : date;
+  
+  // Verificação de segurança para evitar o erro 'Invalid time value'
+  if (isNaN(d.getTime())) {
+    return 'Data inválida';
+  }
+  
+  return format(d, formatStr);
 }
 
 /**
  * Formata data para input datetime-local (sem conversão UTC)
  */
 export function formatForInput(date: Date | string): string {
-  const localDate = typeof date === 'string' ? fromLocalISOString(date) : date;
-  const year = localDate.getFullYear();
-  const month = String(localDate.getMonth() + 1).padStart(2, '0');
-  const day = String(localDate.getDate()).padStart(2, '0');
-  const hours = String(localDate.getHours()).padStart(2, '0');
-  const minutes = String(localDate.getMinutes()).padStart(2, '0');
-  
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '';
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
@@ -59,9 +68,11 @@ export function formatForInput(date: Date | string): string {
  * Verifica se data está próxima (dentro de X minutos)
  */
 export function isNearby(date: Date | string, minutesThreshold: number = 30): boolean {
-  const localDate = typeof date === 'string' ? fromLocalISOString(date) : date;
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return false;
+  
   const now = new Date();
-  const diffMs = localDate.getTime() - now.getTime();
+  const diffMs = d.getTime() - now.getTime();
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
   return diffMinutes > 0 && diffMinutes <= minutesThreshold;
 }
@@ -70,10 +81,11 @@ export function isNearby(date: Date | string, minutesThreshold: number = 30): bo
  * Cria lembrete automático: 1 dia antes às 16:00
  */
 export function createAutoReminder(eventDate: Date | string): Date {
-  const localDate = typeof eventDate === 'string' ? fromLocalISOString(eventDate) : eventDate;
+  const d = typeof eventDate === 'string' ? new Date(eventDate) : eventDate;
+  if (isNaN(d.getTime())) return new Date(); // Fallback seguro
   
   // Subtrair 1 dia
-  const reminderDate = new Date(localDate);
+  const reminderDate = new Date(d);
   reminderDate.setDate(reminderDate.getDate() - 1);
   
   // Setar horário para 16:00

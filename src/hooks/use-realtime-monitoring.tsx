@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { formatLocalDate, fromLocalISOString } from "@/lib/timezone";
+import { formatLocalDate } from "@/lib/timezone";
+import { fromNaiveISOString } from "@/lib/naive-date";
 
 interface OverdueItem {
   id: string;
@@ -25,7 +26,7 @@ export function useRealtimeMonitoring() {
       if (!res.ok) throw new Error("Erro ao buscar eventos");
       return res.json();
     },
-    // refetchInterval: 300000, // TEMPORARIAMENTE DESABILITADO PARA EVITAR SOBRECARGA
+    refetchInterval: 60000, // Verificar a cada 60 segundos
   });
 
   // Solicitar permissão para notificações do navegador
@@ -39,30 +40,32 @@ export function useRealtimeMonitoring() {
     }
   }, []);
 
+  // Estado para controlar notificações já enviadas
+  const [notifiedEvents, setNotifiedEvents] = useState(new Set<string>());
+
   // Verificar eventos que atingiram o prazo
   const checkDueEvents = useCallback(() => {
     if (!events) return;
 
     const now = new Date();
-    const notifiedEvents = new Set<string>(); // Evitar notificações duplicadas
+    const nowTime = now.getTime();
 
     events.forEach((event: any) => {
-      const eventDate = fromLocalISOString(event.dueDate);
+      const eventDate = new Date(event.dueDate);
       const eventId = event.id;
 
       // Pular se já notificado recentemente
       if (notifiedEvents.has(eventId)) return;
 
       // Comparação local estrita - usar apenas timestamps
-      const nowTime = now.getTime();
       const eventTime = eventDate.getTime();
       const timeDiff = eventTime - nowTime;
       
-      // Lógica estrita: só está atrasado se o tempo do evento for menor que agora
+      // Lógica: notificar se estiver no prazo (±60 segundos) e não estiver concluído
+      const isDue = Math.abs(timeDiff) <= 60000; // ±60 segundos
       const isOverdue = eventTime < nowTime;
-      const isDue = Math.abs(timeDiff) <= 30000; // ±30 segundos para notificação
 
-      if (isDue && event.status !== "COMPLETED") {
+      if ((isDue || isOverdue) && event.status !== "COMPLETED") {
         // Notificação Sonner
         toast.error(`⏰ Evento atingiu o prazo: ${event.title}`, {
           description: `Horário: ${formatLocalDate(event.dueDate)}`,
@@ -70,7 +73,6 @@ export function useRealtimeMonitoring() {
           action: {
             label: "Ver detalhes",
             onClick: () => {
-              // Abrir modal do evento (implementar lógica)
               window.dispatchEvent(new CustomEvent("open-event-modal", { detail: { eventId: event.id } }));
             },
           },
@@ -85,10 +87,20 @@ export function useRealtimeMonitoring() {
           });
         }
 
-        notifiedEvents.add(eventId);
+        // Marcar como notificado
+        setNotifiedEvents(prev => new Set([...prev, eventId]));
       }
     });
-  }, [events, hasNotificationPermission]);
+  }, [events, hasNotificationPermission, notifiedEvents]);
+
+  // Executar verificação periódica
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkDueEvents();
+    }, 60000); // Verificar a cada 60 segundos
+
+    return () => clearInterval(interval);
+  }, [checkDueEvents]);
 
   // Buscar itens atrasados
   const { data: overdueItems } = useQuery({
@@ -115,7 +127,7 @@ export function useRealtimeMonitoring() {
       // FILTRO DUPO: Validar localmente cada item para garantir que está realmente atrasado
       const trulyOverdueItems = items.filter((item: any) => {
         // Converter dueDate do banco para Date local
-        const eventDate = fromLocalISOString(item.dueDate);
+        const eventDate = new Date(item.dueDate);
         const eventTime = eventDate.getTime();
         
         // Regra estrita: só está atrasado se o tempo do evento for MENOR que agora
@@ -197,7 +209,7 @@ function OverdueItemCard({ item }: { item: OverdueItem }) {
 
   // Cálculo de tempo relativo usando data local estrita
   const now = new Date();
-  const eventDate = fromLocalISOString(item.dueDate);
+  const eventDate = new Date(item.dueDate);
   const nowTime = now.getTime();
   const eventTime = eventDate.getTime();
   

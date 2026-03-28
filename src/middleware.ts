@@ -1,24 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
 
 // Rotas que não requerem autenticação
-const publicRoutes = ['/auth/signin'];
-// Rotas de API que requerem autenticação
-const protectedApiRoutes = ['/api/events', '/api/modules', '/api/reminders'];
-// Rotas de página que requerem autenticação
-const protectedRoutes = ['/', '/admin'];
+const publicRoutes = ['/login', '/api/auth/login', '/api/auth/logout'];
+// Arquivos estáticos que não requerem autenticação
+const staticFiles = ['/_next/', '/favicon.ico', '/manifest.json', '/public/'];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   
-  // Ignorar completamente arquivos estáticos e rotas do NextAuth
+  // Ignorar completamente arquivos estáticos
   if (
-    pathname.startsWith('/_next/') ||
-    pathname.startsWith('/api/auth/') ||
-    pathname.startsWith('/public/') ||
-    pathname.includes('favicon.ico') ||
-    pathname.includes('manifest.json') ||
+    staticFiles.some(path => pathname.startsWith(path)) ||
     pathname.includes('.svg') ||
     pathname.includes('.png') ||
     pathname.includes('.jpg') ||
@@ -29,44 +22,36 @@ export async function middleware(req: NextRequest) {
   }
   
   // Verificar se é uma rota pública
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  const isPublicRoute = publicRoutes.some(route => pathname === route);
   
-  // Se for rota pública, permitir acesso
-  if (isPublicRoute) {
-    return NextResponse.next();
-  }
+  // Verificar cookie de sessão
+  const sessionCookie = req.cookies.get('life_os_session');
+  const isAuthenticated = !!sessionCookie?.value;
   
-  // Tentar obter o token JWT
-  const token = await getToken({ 
-    req, 
-    secret: process.env.NEXTAUTH_SECRET 
-  });
-  
-  // Se não houver token, redirecionar para login
-  if (!token) {
-    // Para rotas de API, retornar 401
-    const isProtectedApi = protectedApiRoutes.some(route => pathname.startsWith(route));
-    if (isProtectedApi) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Authentication required' },
-        { status: 401 }
-      );
-    }
-    
-    // Para rotas de página, redirecionar para login
-    const loginUrl = new URL('/auth/signin', req.url);
-    loginUrl.searchParams.set('callbackUrl', pathname);
+  // Se não está autenticado e não está em rota pública, redirecionar para login
+  if (!isAuthenticated && !isPublicRoute) {
+    const loginUrl = new URL('/login', req.url);
     return NextResponse.redirect(loginUrl);
   }
   
-  // Se houver token, permitir acesso
+  // Se está autenticado e tentando acessar login, redirecionar para dashboard
+  if (isAuthenticated && pathname === '/login') {
+    const dashboardUrl = new URL('/', req.url);
+    return NextResponse.redirect(dashboardUrl);
+  }
+  
   return NextResponse.next();
 }
 
-// Configurar quais rotas o middleware deve interceptar
 export const config = {
   matcher: [
-    // Ignorar arquivos estáticos e rotas do NextAuth
-    '/((?!api/auth|_next|favicon\\.ico|manifest\\.json).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image).*)',
   ],
 };

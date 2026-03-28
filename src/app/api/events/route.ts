@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
       brief: body.brief ?? null,
       outcome: body.outcome ?? null,
       moduleId: body.moduleId,
+      userId: session.user.id,
       attachmentUrls: (body.attachmentUrls as string[] | undefined) ?? [],
     });
 

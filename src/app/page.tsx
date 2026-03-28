@@ -1,7 +1,6 @@
 import { getModules } from "@/lib/module-actions";
 import { hasCriticalOpenEventsToday } from "@/lib/events";
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { cookies } from "next/headers";
 import HomeClient from "./home-client";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +18,10 @@ async function getDayProgress() {
 }
 
 export default async function Home() {
-  const session = await getServerSession(authOptions);
-
-  if (!session) {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('life_os_session');
+  
+  if (!sessionCookie?.value) {
     // O middleware vai redirecionar para o login
     return null;
   }

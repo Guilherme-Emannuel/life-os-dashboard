@@ -5,27 +5,6 @@ import { EVENT_TYPES, EVENT_STATUS, PRIORITY } from "@/lib/events";
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultModules } from "@/lib/modules";
 
-// Constants para tipos (substituindo enums)
-const EVENT_TYPES = {
-  EVENT: "EVENT",
-  REMINDER: "REMINDER", 
-  TASK: "TASK"
-} as const;
-
-const EVENT_STATUS = {
-  PENDING: "PENDING",
-  IN_PROGRESS: "IN_PROGRESS",
-  COMPLETED: "COMPLETED",
-  OVERDUE: "OVERDUE"
-} as const;
-
-const PRIORITY = {
-  LOW: "LOW",
-  MEDIUM: "MEDIUM",
-  HIGH: "HIGH",
-  CRITICAL: "CRITICAL"
-} as const;
-
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   
@@ -74,8 +53,12 @@ export async function POST(req: NextRequest) {
         dueDate: now,
         priority: PRIORITY.MEDIUM,
         brief: text,
-        moduleId: firstModule.id,
-        userId: session.user.id,
+        module: {
+          connect: { id: firstModule.id }
+        },
+        user: {
+          connect: { id: session.user.id }
+        },
       },
     });
 

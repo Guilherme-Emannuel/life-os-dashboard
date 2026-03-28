@@ -1,10 +1,10 @@
-import { Chrono } from 'chrono-node';
+import { pt } from 'chrono-node';
 import { format, parseISO, isToday, isTomorrow, isPast, isFuture, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toLocalISOString, formatLocalDate } from './timezone';
 
 // Configurar Chrono para português brasileiro
-const chrono = new Chrono();
+const chrono = pt;
 
 export interface ParsedEvent {
   title: string;
@@ -34,7 +34,7 @@ export function parseNaturalLanguage(text: string): ParsedEvent {
     }
   }
 
-  // Extrair data/hora com chrono-node
+  // Extrair data/hora com chrono-node em português
   const dateResults = chrono.parse(text, new Date(), { forwardDate: true });
   if (dateResults.length > 0) {
     const result = dateResults[0];
@@ -42,7 +42,6 @@ export function parseNaturalLanguage(text: string): ParsedEvent {
     
     // Verificar se a data é válida antes de processar
     if (isNaN(parsedDate.getTime())) {
-      console.log("⚠️ Chrono retornou data inválida:", parsedDate);
       date = null;
     } else {
       // Forçar timezone local - extrair componentes e reconstruir data local
@@ -58,19 +57,7 @@ export function parseNaturalLanguage(text: string): ParsedEvent {
       
       // Verificar se a data reconstruída é válida
       if (isNaN(date.getTime())) {
-        console.log("⚠️ Data reconstruída inválida:", { year, month, day, hours, minutes, seconds });
         date = null;
-      } else {
-        console.log("🔍 Chrono parse:", {
-          original: text,
-          parsed: parsedDate,
-          parsedISO: parsedDate.toISOString(),
-          parsedLocal: parsedDate.toLocaleString('pt-BR'),
-          forcedLocal: date,
-          forcedLocalISO: date.toISOString(),
-          forcedLocalString: date.toLocaleString('pt-BR'),
-          timezoneOffset: date.getTimezoneOffset()
-        });
       }
     }
     
@@ -78,64 +65,177 @@ export function parseNaturalLanguage(text: string): ParsedEvent {
     const dateText = result.text;
     cleanedText = cleanedText.replace(dateText, '').trim();
   } else {
+    // Função auxiliar para encontrar o próximo dia da semana
+    function getNextWeekday(targetDayName: string): Date {
+      const days = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+      const targetDay = days.indexOf(targetDayName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+      const now = new Date();
+      const currentDay = now.getDay();
+      const daysUntil = (targetDay - currentDay + 7) % 7 || 7;
+      const result = new Date(now.getTime() + daysUntil * 24 * 60 * 60 * 1000);
+      
+      // Garantir anti-viagem no tempo - nunca retornar data no passado
+      if (result < now) {
+        return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      }
+      
+      return result;
+    }
+
+    // Função auxiliar para calcular múltiplos dias da semana no futuro
+    function getMultipleWeekdays(targetDayName: string, count: number): Date {
+      const firstOccurrence = getNextWeekday(targetDayName);
+      // Adicionar (count - 1) semanas ao primeiro dia encontrado
+      return new Date(firstOccurrence.getTime() + (count - 1) * 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // Função auxiliar para converter números por extenso
+    function parseExtendedNumber(text: string): number {
+      const extendedNumbers: { [key: string]: number } = {
+        'um': 1, 'uma': 1, 'dois': 2, 'duas': 2, 'três': 3, 'tres': 3,
+        'quatro': 4, 'cinco': 5, 'seis': 6, 'sete': 7, 'oito': 8,
+        'nove': 9, 'dez': 10, 'onze': 11, 'doze': 12
+      };
+      
+      return extendedNumbers[text.toLowerCase()] || parseInt(text) || 0;
+    }
+
     // Tentar expressões comuns em português que chrono pode não pegar
     const portuguesePatterns = [
-      { pattern: /daqui a (\d+)\s*(hora|horas|dia|dias|semana|semanas|mês|meses)/gi, handler: (match: string, p1: string, p2: string) => {
-        const num = parseInt(p1);
-        const now = new Date();
-        if (p2.startsWith('hora')) return new Date(now.getTime() + num * 60 * 60 * 1000);
-        if (p2.startsWith('dia')) return new Date(now.getTime() + num * 24 * 60 * 60 * 1000);
-        if (p2.startsWith('semana')) return new Date(now.getTime() + num * 7 * 24 * 60 * 60 * 1000);
-        if (p2.startsWith('mê') || p2.startsWith('mes')) return new Date(now.getFullYear(), now.getMonth() + num, now.getDate());
-        return now;
-      }},
-      { pattern: /proximo|pr[óo]ximo\s+(segunda|terça|quarta|quinta|sexta|s[áa]bado|domingo)/gi, handler: (match: string, day: string) => {
-        const days = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-        const targetDay = days.indexOf(day.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
-        const now = new Date();
-        const currentDay = now.getDay();
-        const daysUntil = (targetDay - currentDay + 7) % 7 || 7;
-        return new Date(now.getTime() + daysUntil * 24 * 60 * 60 * 1000);
-      }},
-      { pattern: /hoje\s+as\s+(\d{1,2}):?(\d{0,2})/gi, handler: (match: string, h: string, m: string) => {
+      // Regra 1: Daqui a X tempo (horas, dias, semanas, meses) - Aceita "um", "uma" ou números
+      { 
+        pattern: /daqui a\s+(um|uma|\d+)\s+(hora|horas|dia|dias|semana|semanas|mês|meses|mes)/i, 
+        handler: (match: string, qtd: string, tipo: string) => {
+          if (!qtd || !tipo) return null;
+          const num = (qtd.toLowerCase() === 'um' || qtd.toLowerCase() === 'uma') ? 1 : parseInt(qtd);
+          const now = new Date();
+          
+          if (tipo.startsWith('hora')) return new Date(now.getTime() + num * 60 * 60 * 1000);
+          if (tipo.startsWith('dia')) return new Date(now.getFullYear(), now.getMonth(), now.getDate() + num, now.getHours(), now.getMinutes());
+          if (tipo.startsWith('semana')) return new Date(now.getFullYear(), now.getMonth(), now.getDate() + (num * 7), now.getHours(), now.getMinutes());
+          if (tipo.startsWith('mê') || tipo.startsWith('mes')) {
+            const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + num, now.getDate(), now.getHours(), now.getMinutes());
+            return nextMonthDate;
+          }
+          return now;
+        }
+      },
+
+      // Regra 2: Daqui a X dias da semana (ex: "daqui a 3 sábados") - Aceita "um", "uma" ou números
+      { 
+        pattern: /daqui a\s+(um|uma|\d+)\s+(segunda|terça|quarta|quinta|sexta|s[áa]bado|domingo)s?/i, 
+        handler: (match: string, qtd: string, dayStr: string) => {
+          if (!qtd || !dayStr) return null;
+          const num = (qtd.toLowerCase() === 'um' || qtd.toLowerCase() === 'uma') ? 1 : parseInt(qtd);
+          const days = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+          
+          const normalizedDay = dayStr.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const targetDay = days.indexOf(normalizedDay);
+          
+          const now = new Date();
+          const currentDay = now.getDay();
+          
+          // Quantos dias até o PRÓXIMO dia da semana pedido?
+          let daysUntilNext = (targetDay - currentDay + 7) % 7;
+          if (daysUntilNext === 0) daysUntilNext = 7; // Se hoje é sábado e peço "próximo sábado", são 7 dias.
+          
+          // Soma os dias até o próximo, mais (N-1) semanas.
+          const totalDaysToAdd = daysUntilNext + ((num - 1) * 7);
+          
+          return new Date(now.getFullYear(), now.getMonth(), now.getDate() + totalDaysToAdd, now.getHours(), now.getMinutes());
+        }
+      },
+
+      // Regra 3: Dias da semana simples no futuro (ex: "até terça", "na quarta", "sexta")
+      { 
+        pattern: /(?:at[ée]|na|para|nesta|neste|pr[óo]xima|pr[óo]ximo)?\s*(segunda|terça|quarta|quinta|sexta|s[áa]bado|domingo)/i, 
+        handler: (match: string, dayStr: string) => {
+          if (!dayStr) return null;
+          // Evitar conflito com a regra anterior ("daqui a X...")
+          if (match.toLowerCase().includes('daqui a')) return null;
+
+          const days = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+          const normalizedDay = dayStr.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const targetDay = days.indexOf(normalizedDay);
+          
+          const now = new Date();
+          const currentDay = now.getDay();
+          
+          let daysUntilNext = (targetDay - currentDay + 7) % 7;
+          if (daysUntilNext === 0) daysUntilNext = 7; 
+          
+          return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilNext, now.getHours(), now.getMinutes());
+        }
+      },
+      { pattern: /hoje\s+as\s+(\d{1,2}):?(\d{0,2})/i, handler: (match: string, h: string, m: string) => {
+        if (!h) return null;
         const now = new Date();
         const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(h), parseInt(m || '0'));
         
         // Verificar se a data é válida
         if (isNaN(localDate.getTime())) {
-          console.log("⚠️ Pattern 'hoje as' criou data inválida:", { hours: h, minutes: m || '0' });
           return null;
         }
         
-        console.log("🔍 Pattern 'hoje as':", {
-          match,
-          hours: h,
-          minutes: m || '0',
-          result: localDate,
-          resultISO: localDate.toISOString(),
-          resultLocal: localDate.toLocaleString('pt-BR')
-        });
+        return localDate;
+      }},
+      { pattern: /hoje\s+as\s+(\d{1,2})h/i, handler: (match: string, h: string) => {
+        if (!h) return null;
+        const now = new Date();
+        const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(h), 0);
+        
+        // Verificar se a data é válida
+        if (isNaN(localDate.getTime())) {
+          return null;
+        }
         
         return localDate;
       }},
-      { pattern: /amanha\s+as\s+(\d{1,2}):?(\d{0,2})/gi, handler: (match: string, h: string, m: string) => {
+      { pattern: /amanha\s+as\s+(\d{1,2}):?(\d{0,2})/i, handler: (match: string, h: string, m: string) => {
+        if (!h) return null;
         const now = new Date();
         const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, parseInt(h), parseInt(m || '0'));
         
         // Verificar se a data é válida
         if (isNaN(localDate.getTime())) {
-          console.log("⚠️ Pattern 'amanha as' criou data inválida:", { hours: h, minutes: m || '0' });
           return null;
         }
         
-        console.log("🔍 Pattern 'amanha as':", {
-          match,
-          hours: h,
-          minutes: m || '0',
-          result: localDate,
-          resultISO: localDate.toISOString(),
-          resultLocal: localDate.toLocaleString('pt-BR')
-        });
+        return localDate;
+      }},
+      { pattern: /amanhã\s+as\s+(\d{1,2}):?(\d{0,2})/i, handler: (match: string, h: string, m: string) => {
+        if (!h) return null;
+        const now = new Date();
+        const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, parseInt(h), parseInt(m || '0'));
+        
+        // Verificar se a data é válida
+        if (isNaN(localDate.getTime())) {
+          return null;
+        }
+        
+        return localDate;
+      }},
+      { pattern: /amanha\s+as\s+(\d{1,2})h/i, handler: (match: string, h: string) => {
+        if (!h) return null;
+        const now = new Date();
+        const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, parseInt(h), 0);
+        
+        // Verificar se a data é válida
+        if (isNaN(localDate.getTime())) {
+          return null;
+        }
+        
+        return localDate;
+      }},
+      { pattern: /amanhã\s+as\s+(\d{1,2})h/i, handler: (match: string, h: string) => {
+        if (!h) return null;
+        const now = new Date();
+        const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, parseInt(h), 0);
+        
+        // Verificar se a data é válida
+        if (isNaN(localDate.getTime())) {
+          return null;
+        }
         
         return localDate;
       }}
@@ -151,9 +251,9 @@ export function parseNaturalLanguage(text: string): ParsedEvent {
     }
   }
 
-  // Limpar palavras de conexão e artigos
+  // Limpar palavras de conexão e artigos (removendo números por extenso da limpeza)
   cleanedText = cleanedText
-    .replace(/\b(ate|até|para|em|o|a|os|as|de|do|da|dos|das|um|uma|uns|umas)\b/gi, '')
+    .replace(/\b(ate|até|para|em|o|a|os|as|de|do|da|dos|das)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -162,9 +262,11 @@ export function parseNaturalLanguage(text: string): ParsedEvent {
     date = addDays(new Date(), 1);
   }
 
-  // Verificação final de data válida
+  // Verificação final de data válida e anti-viagem no tempo
   if (date && isNaN(date.getTime())) {
-    console.log("⚠️ Data final inválida, usando padrão:", date);
+    date = addDays(new Date(), 1);
+  } else if (date && date < new Date()) {
+    // Garantir anti-viagem no tempo - se a data calculada estiver no passado, usar amanhã
     date = addDays(new Date(), 1);
   }
 

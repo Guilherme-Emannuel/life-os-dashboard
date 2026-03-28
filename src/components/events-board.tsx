@@ -5,8 +5,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Trash2, Plus, Calendar, Flag, Edit2, X, ChevronLeft } from "lucide-react";
 import { formatEventDate, getDateStatus, getDateColor, getAreaColor } from "@/lib/nlp-parser";
-import { formatForInput, fromLocalISOString, formatLocalDate } from "@/lib/timezone";
-import { formatWithTimezone } from "@/lib/naive-date";
+import { formatForInput, formatLocalDate } from "@/lib/timezone";
+import { formatWithTimezone, fromNaiveISOString } from "@/lib/naive-date";
 
 // Definição manual de tipos
 type Priority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -24,7 +24,7 @@ interface EventWithExtras {
   dueDate: string;
   moduleId: string;
   module?: { id: string; name: string; };
-  attachments: { id: string; url: string }[];
+  attachments: { id: string; url: string; name?: string; mimeType?: string }[];
 }
 
 async function fetchEvents(moduleId?: string, type?: "TASK" | "EVENT" | "ALL", status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "OVERDUE" | "ALL", priority?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | "ALL"): Promise<EventWithExtras[]> {
@@ -35,7 +35,6 @@ async function fetchEvents(moduleId?: string, type?: "TASK" | "EVENT" | "ALL", s
   if (priority && priority !== "ALL") params.set("priority", priority);
 
   const url = `/api/events?${params.toString()}`;
-  console.log("🔍 EventsBoard - Buscando eventos:", { url, moduleId, type, status, priority });
 
   const res = await fetch(url, {
     cache: "no-store",
@@ -43,7 +42,6 @@ async function fetchEvents(moduleId?: string, type?: "TASK" | "EVENT" | "ALL", s
   if (!res.ok) throw new Error("Erro ao carregar eventos");
   
   const events = await res.json();
-  console.log("📋 EventsBoard - Eventos recebidos:", events.length, events);
   return events;
 }
 
@@ -88,17 +86,6 @@ export function EventsBoard({
   const { data, isLoading, error } = useQuery({
     queryKey: ["events", moduleId, filterType, filterStatus, filterPriority],
     queryFn: () => fetchEvents(moduleId, filterType, filterStatus, filterPriority),
-  });
-
-  console.log("🔍 EventsBoard - Query config:", { 
-    queryKey: ["events", moduleId, filterType, filterStatus, filterPriority],
-    moduleId, 
-    filterType, 
-    filterStatus, 
-    filterPriority,
-    isLoading,
-    error: error?.message,
-    dataLength: data?.length || 0
   });
 
   const deleteMutation = useMutation({
@@ -243,7 +230,6 @@ function EventCard({ event, onDelete, onEdit }: {
 }) {
   // Verificação de segurança antes de processar
   if (!event || !event.dueDate) {
-    console.log("⚠️ EventCard - Evento ou dueDate inválido:", event);
     return (
       <div className="group rounded-lg border border-slate-200 bg-white p-3">
         <div className="text-red-500">Dados do evento inválidos</div>
@@ -251,7 +237,7 @@ function EventCard({ event, onDelete, onEdit }: {
     );
   }
 
-  const dueDate = fromLocalISOString(event.dueDate);
+  const dueDate = new Date(event.dueDate);
   const dateStatus = getDateStatus(dueDate);
   const dateColorClass = getDateColor(dateStatus);
   
@@ -320,8 +306,82 @@ function EditPanel({ isOpen, onClose, event }: {
   event: EventWithExtras | null;
 }) {
   const qc = useQueryClient();
+  const [uploadingFile, setUploadingFile] = useState(false);
   
   if (!isOpen || !event) return null;
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingFile(true);
+    
+    try {
+      // Upload do arquivo
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!uploadRes.ok) throw new Error('Erro ao fazer upload');
+      
+      const uploadData = await uploadRes.json();
+      
+      // Vincular anexo ao evento
+      const attachmentRes = await fetch(`/api/events/${event.id}/attachments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: uploadData.url,
+          name: uploadData.name,
+          mimeType: uploadData.mimeType
+        })
+      });
+      
+      if (!attachmentRes.ok) throw new Error('Erro ao vincular anexo');
+      
+      // Invalidar queries para atualizar a lista
+      qc.invalidateQueries({ queryKey: ["events"] });
+      qc.invalidateQueries({ queryKey: ["calendar-events"] });
+      qc.invalidateQueries({ queryKey: ["monitoring-events"] });
+      qc.invalidateQueries({ queryKey: ["overdue-items"] });
+      
+      toast.success('Arquivo anexado com sucesso!');
+      
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao anexar arquivo');
+    } finally {
+      setUploadingFile(false);
+      // Limpar o input
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!confirm('Tem certeza que deseja remover este anexo?')) return;
+    
+    try {
+      const res = await fetch(`/api/events/${event.id}/attachments?attachmentId=${attachmentId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!res.ok) throw new Error('Erro ao remover anexo');
+      
+      // Invalidar queries para atualizar a lista
+      qc.invalidateQueries({ queryKey: ["events"] });
+      qc.invalidateQueries({ queryKey: ["calendar-events"] });
+      qc.invalidateQueries({ queryKey: ["monitoring-events"] });
+      qc.invalidateQueries({ queryKey: ["overdue-items"] });
+      
+      toast.success('Anexo removido com sucesso!');
+      
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao remover anexo');
+    }
+  };
 
   const handleSave = async (formData: FormData) => {
     try {
@@ -444,6 +504,56 @@ function EditPanel({ isOpen, onClose, event }: {
                 defaultValue={formatForInput(event.dueDate)}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            {/* Seção de Anexos */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Anexos</label>
+              
+              {/* Lista de anexos existentes */}
+              {event.attachments && event.attachments.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {event.attachments.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-200">
+                      <a 
+                        href={attachment.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 flex-1 min-w-0"
+                      >
+                        📎 {attachment.name || attachment.url.split('/').pop() || 'Arquivo sem nome'}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAttachment(attachment.id)}
+                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                        title="Remover anexo"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload de novo anexo */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  id="file-upload"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  📎 Escolher arquivo
+                </label>
+                {uploadingFile && (
+                  <span className="text-sm text-slate-500">Enviando...</span>
+                )}
+              </div>
             </div>
           </div>
           

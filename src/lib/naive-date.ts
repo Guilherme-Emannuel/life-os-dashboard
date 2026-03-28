@@ -49,17 +49,5 @@ export function formatWithTimezone(date: Date | string, formatStr: string = "dd/
  * Verificação de debug para timezone
  */
 export function debugTimezone(date: Date | string, label: string = "Debug"): void {
-  const localDate = typeof date === 'string' ? fromNaiveISOString(date) : date;
-  
-  console.log(`🔍 ${label}:`, {
-    input: date,
-    inputType: typeof date,
-    localDate: localDate,
-    localISOString: localDate.toISOString(),
-    naiveISOString: createNaiveISOString(localDate),
-    localString: localDate.toLocaleString('pt-BR'),
-    timezoneOffset: localDate.getTimezoneOffset(),
-    processEnvTZ: process.env.TZ,
-    nodeTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-  });
+  // Debug function removida para produção
 }

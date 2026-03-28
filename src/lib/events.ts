@@ -94,6 +94,7 @@ type EventInput = {
   brief?: string | null;
   outcome?: string | null;
   moduleId: string;
+  userId: string;
   attachmentUrls?: string[];
 };
 
@@ -103,6 +104,7 @@ export async function createEvent(data: EventInput) {
     type: data.type,
     status: data.status,
     moduleId: data.moduleId,
+    userId: data.userId,
     priority: data.priority,
     brief: data.brief
   });
@@ -127,7 +129,12 @@ export async function createEvent(data: EventInput) {
       priority: data.priority,
       brief: data.brief,
       outcome: data.outcome,
-      moduleId: data.moduleId,
+      module: {
+        connect: { id: data.moduleId }
+      },
+      user: {
+        connect: { id: data.userId }
+      },
       attachments: data.attachmentUrls
         ? {
             create: data.attachmentUrls
@@ -142,6 +149,7 @@ export async function createEvent(data: EventInput) {
       attachments: true,
       reminders: true,
       module: true,
+      user: true,
     },
   });
 
@@ -227,13 +235,16 @@ export async function updateEvent(
       priority: data.priority,
       brief: data.brief,
       outcome: nextOutcome,
-      moduleId: data.moduleId,
+      module: data.moduleId ? {
+        connect: { id: data.moduleId }
+      } : undefined,
       attachments: attachmentOps,
     },
     include: {
       attachments: true,
       reminders: true,
       module: true,
+      user: true,
     },
   });
 }

@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   turbopack: {},
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3001', '127.0.0.1:3001']
+      allowedOrigins: ['localhost:3000', '127.0.0.1:3000', '100.113.255:3000']
     }
   },
   /* config options here */
@@ -16,6 +16,7 @@ export default withPWA({
   disable: process.env.NODE_ENV === "development",
   register: true,
   skipWaiting: true,
+  
   runtimeCaching: [
     {
       urlPattern: /^https?.*/,

@@ -1,12 +1,13 @@
 "use client";
 
-import { Settings2 } from "lucide-react";
+import { Settings2, LogOut } from "lucide-react";
 import Link from "next/link";
 import { EventsBoard } from "@/components/events-board";
 import { CalendarBoard } from "@/components/calendar-board";
 import { QuickCaptureForm } from "@/components/quick-capture-form";
 import { useRealtimeMonitoring, OverdueAlerts } from "@/hooks/use-realtime-monitoring";
 import { usePersistentReminders, CriticalAlertModal } from "@/hooks/use-persistent-reminders";
+import { toast } from "sonner";
 
 interface HomeClientProps {
   modules: any[];
@@ -22,6 +23,25 @@ export default function HomeClient({
   const { overdueItems } = useRealtimeMonitoring();
   const { activeAlert, handleComplete, handlePostpone, handleDismiss } = usePersistentReminders();
   const firstModule = modules[0];
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao fazer logout');
+      }
+
+      toast.success('Logout realizado com sucesso!');
+      window.location.href = '/login';
+
+    } catch (error) {
+      console.error('Erro no logout:', error);
+      toast.error('Erro ao fazer logout. Tente novamente.');
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-50 via-white to-blue-50 text-slate-900">
@@ -48,6 +68,13 @@ export default function HomeClient({
               <Settings2 className="h-3.5 w-3.5" />
               Gerenciar módulos
             </Link>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm transition hover:border-red-400 hover:bg-red-100"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sair
+            </button>
           </div>
         </div>
       </header>
@@ -164,7 +191,7 @@ export default function HomeClient({
       {/* Modal de Alerta Crítico */}
       {activeAlert && (
         <CriticalAlertModal
-          reminder={activeAlert}
+          reminder={activeAlert!}
           onDismiss={handleDismiss}
           onComplete={handleComplete}
           onPostpone={handlePostpone}

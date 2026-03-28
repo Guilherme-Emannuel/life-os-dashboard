@@ -32,6 +32,8 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
+.env
+.env.local
 .env*
 
 # vercel
@@ -45,4 +47,8 @@ next-env.d.ts
 /src/generated/prisma
 /src/generated
 prisma/dev.db
+prisma/dev.db-journal
 prisma/*.db
+
+# Não sobe uploads
+public/uploads/
