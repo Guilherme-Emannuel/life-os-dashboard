@@ -32,14 +32,10 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies();
     const sessionValue = 'authenticated'; // Valor simples, poderia ser um token JWT
     
-    // Configuração segura para HTTP em desenvolvimento/Tailscale
-    const isSecureCookie = process.env.NODE_ENV === 'production' && 
-                          !process.env.TAILSCALE_HTTP && 
-                          !process.env.ALLOW_INSECURE_HTTP;
-    
+    // Forçar secure: false para funcionar via HTTP/Tailscale
     cookieStore.set('life_os_session', sessionValue, {
       httpOnly: true,
-      secure: isSecureCookie,
+      secure: false,  // Forçado para HTTP/Tailscale
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60, // 7 dias em segundos
       path: '/',
