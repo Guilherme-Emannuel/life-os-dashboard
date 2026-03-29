@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
     const adminPassword = process.env.ADMIN_PASSWORD;
 
     if (!adminPassword) {
-      console.error('❌ ADMIN_PASSWORD não configurada nas variáveis de ambiente');
       return NextResponse.json(
         { error: 'Erro de configuração do servidor' },
         { status: 500 }
@@ -33,9 +32,14 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies();
     const sessionValue = 'authenticated'; // Valor simples, poderia ser um token JWT
     
+    // Configuração segura para HTTP em desenvolvimento/Tailscale
+    const isSecureCookie = process.env.NODE_ENV === 'production' && 
+                          !process.env.TAILSCALE_HTTP && 
+                          !process.env.ALLOW_INSECURE_HTTP;
+    
     cookieStore.set('life_os_session', sessionValue, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecureCookie,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60, // 7 dias em segundos
       path: '/',
@@ -44,7 +48,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, message: 'Login realizado com sucesso' });
 
   } catch (error) {
-    console.error('❌ Erro no login:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
