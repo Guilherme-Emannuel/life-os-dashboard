@@ -2,19 +2,12 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export function createNaiveISOString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  // Agora o celular envia a data com a "assinatura" exata do seu fuso horário (UTC absoluto)
+  return date.toISOString();
 }
 
 export function fromNaiveISOString(dateString: string): Date {
-  // Agora o Javascript lê a data. Se tiver "Z" (do banco), ele diminui 4 horas sozinho. 
-  // Se vier seco (do formulário), ele assume horário local.
+  // O navegador do celular recebe a data global e converte sozinho para o horário local
   return new Date(dateString);
 }
 
