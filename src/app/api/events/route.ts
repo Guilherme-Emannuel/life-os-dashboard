@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createEvent, listEvents, EVENT_TYPES, EVENT_STATUS, PRIORITY, EventFilters } from "@/lib/events";
 import { fromNaiveISOString, debugTimezone } from "@/lib/naive-date";
+import { prisma } from "@/lib/prisma";
 
 function parseFilters(req: NextRequest): EventFilters {
   const { searchParams } = new URL(req.url);
@@ -91,8 +92,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Como usamos senha única, defina um userId padrão ou "admin"
-    const userId = "admin";
+    // Garantir que existe um usuário no banco para associar ao evento
+    let defaultUser = await prisma.user.findFirst();
+    if (!defaultUser) {
+      defaultUser = await prisma.user.create({
+        data: {
+          email: 'admin@lifeos.local',
+          name: 'Admin',
+          password: 'admin123', // Senha padrão (não será usada no login via .env)
+        }
+      });
+    }
+    const userId = defaultUser.id;
 
     const body = await req.json();
 
