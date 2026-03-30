@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createEvent, listEvents, EVENT_TYPES, EVENT_STATUS, PRIORITY, EventFilters } from "@/lib/events";
-import { fromNaiveISOString, debugTimezone } from "@/lib/naive-date";
+import { parseLocalToUtcDate, formatWithTimezone } from "@/lib/naive-date";
 import { prisma } from "@/lib/prisma";
 
 function parseFilters(req: NextRequest): EventFilters {
@@ -107,9 +107,9 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    // Converter strings ingênuas para Date local
-    const startDateLocal = fromNaiveISOString(body.startDate);
-    const dueDateLocal = fromNaiveISOString(body.dueDate);
+    // Converter strings do formulário para Date UTC
+    const startDateLocal = parseLocalToUtcDate(body.startDate);
+    const dueDateLocal = parseLocalToUtcDate(body.dueDate);
 
     const event = await createEvent({
       title: body.title,

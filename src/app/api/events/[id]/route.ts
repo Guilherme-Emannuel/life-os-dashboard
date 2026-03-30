@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { deleteEvent, getEvent, updateEvent } from "@/lib/events";
-import { toLocalISOString } from "@/lib/timezone";
+import { parseLocalToUtcDate } from "@/lib/naive-date";
+import { prisma } from "@/lib/prisma";
 
 // Constants para tipos (substituindo enums)
 const EVENT_TYPES = {
@@ -39,8 +41,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
   try {
+    // Nova verificação de segurança baseada no cookie do aplicativo
+    const cookieStore = await cookies();
+    const isAuthenticated = cookieStore.get('life_os_session')?.value === 'authenticated';
+    
+    if (!isAuthenticated) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid Session Cookie' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
     const body = await req.json();
 
     // Se só está atualizando status, não precisa converter datas
@@ -55,12 +68,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.moduleId !== undefined) updateData.moduleId = body.moduleId;
     if (body.attachmentUrls !== undefined) updateData.attachmentUrls = body.attachmentUrls as string[];
     
-    // Converter datas apenas se fornecidas
+    // Converter datas usando parseLocalToUtcDate
     if (body.startDate !== undefined) {
-      updateData.startDate = new Date(toLocalISOString(new Date(body.startDate)));
+      updateData.startDate = parseLocalToUtcDate(body.startDate);
     }
     if (body.dueDate !== undefined) {
-      updateData.dueDate = new Date(toLocalISOString(new Date(body.dueDate)));
+      updateData.dueDate = parseLocalToUtcDate(body.dueDate);
     }
 
     const event = await updateEvent(id, updateData);
@@ -75,8 +88,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  await deleteEvent(id);
-  return NextResponse.json({ ok: true });
+  try {
+    // Nova verificação de segurança baseada no cookie do aplicativo
+    const cookieStore = await cookies();
+    const isAuthenticated = cookieStore.get('life_os_session')?.value === 'authenticated';
+    
+    if (!isAuthenticated) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid Session Cookie' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    await deleteEvent(id);
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message ?? "Erro ao deletar evento" },
+      { status: 400 },
+    );
+  }
 }
 
