@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { cookies } from "next/headers";
 import { createEvent, listEvents, EVENT_TYPES, EVENT_STATUS, PRIORITY, EventFilters } from "@/lib/events";
 import { fromNaiveISOString, debugTimezone } from "@/lib/naive-date";
 
@@ -81,14 +80,19 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    // Nova verificação de segurança baseada no cookie do aplicativo
+    const cookieStore = await cookies();
+    const isAuthenticated = cookieStore.get('life_os_session')?.value === 'authenticated';
     
-    if (!session) {
+    if (!isAuthenticated) {
       return NextResponse.json(
-        { error: 'Unauthorized - Authentication required' },
+        { error: 'Unauthorized - Invalid Session Cookie' },
         { status: 401 }
       );
     }
+
+    // Como usamos senha única, defina um userId padrão ou "admin"
+    const userId = "admin";
 
     const body = await req.json();
 
@@ -106,7 +110,7 @@ export async function POST(req: NextRequest) {
       brief: body.brief ?? null,
       outcome: body.outcome ?? null,
       moduleId: body.moduleId,
-      userId: session.user.id,
+      userId: userId,
       attachmentUrls: (body.attachmentUrls as string[] | undefined) ?? [],
     });
 

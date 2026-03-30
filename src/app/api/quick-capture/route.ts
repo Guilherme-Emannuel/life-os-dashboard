@@ -1,21 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { cookies } from "next/headers";
 import { EVENT_TYPES, EVENT_STATUS, PRIORITY } from "@/lib/events";
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultModules } from "@/lib/modules";
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
   try {
+    // Nova verificação de segurança baseada no cookie do aplicativo
+    const cookieStore = await cookies();
+    const isAuthenticated = cookieStore.get('life_os_session')?.value === 'authenticated';
+    
+    if (!isAuthenticated) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid Session Cookie' },
+        { status: 401 }
+      );
+    }
+
+    // Como usamos senha única, defina um userId padrão ou "admin"
+    const userId = "admin";
+
     const body = await req.json();
     const { text } = body;
 
@@ -57,14 +61,13 @@ export async function POST(req: NextRequest) {
           connect: { id: firstModule.id }
         },
         user: {
-          connect: { id: session.user.id }
+          connect: { id: userId }
         },
       },
     });
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {
-    console.error("❌ Quick Capture API Error:", error);
     return NextResponse.json(
       { error: error?.message ?? "Erro ao criar evento" },
       { status: 500 }

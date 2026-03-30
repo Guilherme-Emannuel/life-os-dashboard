@@ -1,22 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
-
   try {
+    // Nova verificação de segurança baseada no cookie do aplicativo
+    const cookieStore = await cookies();
+    const isAuthenticated = cookieStore.get('life_os_session')?.value === 'authenticated';
+    
+    if (!isAuthenticated) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid Session Cookie' },
+        { status: 401 }
+      );
+    }
+
+    // Como usamos senha única, defina um userId padrão ou "admin"
+    const userId = "admin";
+
     const { id } = await params;
     const body = await request.json();
     const { url, name, mimeType } = body;
@@ -28,7 +32,7 @@ export async function POST(
       );
     }
 
-    // Verificar se o evento existe e pertence ao usuário
+    // Verificar se o evento existe
     const event = await prisma.event.findUnique({
       where: { id },
       select: { userId: true }
@@ -38,13 +42,6 @@ export async function POST(
       return NextResponse.json(
         { error: 'Evento não encontrado' },
         { status: 404 }
-      );
-    }
-
-    if (event.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Acesso negado' },
-        { status: 403 }
       );
     }
 
@@ -74,16 +71,18 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
-
   try {
+    // Nova verificação de segurança baseada no cookie do aplicativo
+    const cookieStore = await cookies();
+    const isAuthenticated = cookieStore.get('life_os_session')?.value === 'authenticated';
+    
+    if (!isAuthenticated) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Invalid Session Cookie' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const attachmentId = searchParams.get('attachmentId');
 
@@ -94,7 +93,7 @@ export async function DELETE(
       );
     }
 
-    // Verificar se o anexo existe e pertence ao usuário
+    // Verificar se o anexo existe
     const attachment = await prisma.attachment.findUnique({
       where: { id: attachmentId },
       include: {
@@ -108,13 +107,6 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'Anexo não encontrado' },
         { status: 404 }
-      );
-    }
-
-    if (attachment.event.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Acesso negado' },
-        { status: 403 }
       );
     }
 
