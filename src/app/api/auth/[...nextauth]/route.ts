@@ -89,6 +89,7 @@ export const authOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development',
   debug: process.env.NODE_ENV === 'development',
+  trustHost: true,  // Essencial para Tailscale/HTTP em produção
   // Configuração de cookies para HTTP/Tailscale
   cookies: {
     sessionToken: {

@@ -62,21 +62,16 @@ export async function GET(req: NextRequest) {
     const statusArray = searchParams.getAll("status");
     if (statusArray.length > 0 && !statusArray.includes("ALL")) {
       // Para múltiplos status, precisamos buscar todos e filtrar
-      console.log("🔍 API GET - Múltiplos status:", statusArray);
       const allEvents = await listEvents({ ...filters, status: undefined });
       const filteredEvents = allEvents.filter(event => 
         statusArray.includes(event.status)
       );
-      console.log("📋 API GET - Eventos filtrados:", filteredEvents.length, filteredEvents);
       return NextResponse.json(filteredEvents);
     }
 
-    console.log("🔍 API GET - Buscando eventos com filtros:", filters);
     const events = await listEvents(filters);
-    console.log("📋 API GET - Eventos encontrados:", events.length, events);
     return NextResponse.json(events);
   } catch (error: any) {
-    console.error("❌ API GET - Erro ao buscar eventos:", error);
     return NextResponse.json(
       { error: error?.message ?? "Erro ao buscar eventos" },
       { status: 400 },
@@ -85,16 +80,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 }
-    );
-  }
-
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
 
     // Converter strings ingênuas para Date local
@@ -117,7 +112,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(event, { status: 201 });
   } catch (error: any) {
-    console.error("❌ API POST - Erro ao criar evento:", error);
     return NextResponse.json(
       { error: error?.message ?? "Erro ao criar evento" },
       { status: 400 },
